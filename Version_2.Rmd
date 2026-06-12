@@ -31,6 +31,10 @@ library(plotly)
 
 
 
+<div style="margin:20px 0; text-align:center;">
+
+<a href="index.html" target="_blank">
+
 <button style="
 background:#0f172a;
 color:white;
@@ -46,6 +50,7 @@ Back to Version 1: ARIMA Forecasting
 
 </a>
 
+</div>
 
 # Overview
 

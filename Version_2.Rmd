@@ -29,6 +29,24 @@ library(DT)
 library(plotly)
 ```
 
+
+
+<button style="
+background:#0f172a;
+color:white;
+padding:12px 20px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+font-size:16px;">
+
+Back to Version 1: ARIMA Forecasting
+
+</button>
+
+</a>
+
+
 # Overview
 
 This version extends the NVIDIA stock forecasting project by using machine learning models to predict stock prices from lagged price features.

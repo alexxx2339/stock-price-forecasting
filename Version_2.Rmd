@@ -1,0 +1,366 @@
+---
+title: "Version 2 = Machine Learning Forecasting"
+author: "Alex Alvarez"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    code_folding: hide  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+
+
+```{r}
+library(tidyverse)
+library(quantmod)
+library(randomForest)
+library(xgboost)
+library(DT)
+library(plotly)
+```
+
+# Overview
+
+This version extends the NVIDIA stock forecasting project by using machine learning models to predict stock prices from lagged price features.
+
+
+Models included:
+
+- Linear Regression
+- Random Forest
+- XGBoost
+
+Model performance will be evaluated using RMSE.
+
+# Load NVIDIA Data
+
+
+
+```{r}
+invisible(
+  getSymbols(
+    "NVDA",
+    src = "yahoo",
+    from = "2018-01-01"
+  )
+)
+
+nvda <- data.frame(
+  date = index(NVDA),
+  price = as.numeric(Ad(NVDA))
+)
+```
+
+# Feature Engineering
+
+
+```{r}
+nvda_ml <- nvda %>%
+  mutate(
+    lag1 = lag(price, 1),
+    lag2 = lag(price, 2),
+    lag5 = lag(price, 5),
+    lag10 = lag(price, 10),
+    ma5 = zoo::rollmean(price, 5, fill = NA, align = "right"),
+    ma20 = zoo::rollmean(price, 20, fill = NA, align = "right")
+  ) %>%
+  drop_na()
+
+range(nvda_ml$date)
+nrow(nvda_ml)
+```
+
+
+
+Lag variables and moving averages were created to provide historical context for the machine learning models. These features allow the models to learn patterns from recent price movements and trends.
+
+
+# Train Test Split
+
+
+
+
+```{r}
+split_index <- floor(0.8 * nrow(nvda_ml))
+
+train <- nvda_ml[1:split_index, ]
+
+
+test <- nvda_ml[(split_index + 1):nrow(nvda_ml), ] 
+
+
+
+nrow(train)
+
+
+
+
+
+nrow(test)
+
+
+```
+
+
+
+### Train-Test Split Results
+
+The dataset was divided into two subsets:
+
+- Training Set (80%) used to train the machine learning models.
+- Testing Set (20%) used to evaluate model performance on unseen data.
+
+Separating the data helps ensure that model performance metrics are realistic and not simply a result of memorizing historical observations.
+
+```{r}
+summary(train)
+```
+
+
+The training dataset contains the historical stock prices and engineered features that will be used to build the prediction models.
+
+
+
+```{r}
+summary(test)
+```
+
+
+
+The testing dataset is reserved for evaluating model performance. Predictions generated from the trained models will be compared against the actual stock prices in this dataset.
+
+
+# Linear Regression Model
+
+The linear regression model serves as a baseline benchmark. Future machine learning models such as Random Forest and XGBoost will be compared against this model using RMSE.
+
+
+```{r}
+lm_model <- lm(
+  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  data = train
+)
+
+summary(lm_model)
+```
+
+```{r}
+
+
+
+lm_pred <- predict(
+  lm_model,
+  newdata = test
+)
+
+rmse_lm <- sqrt(
+  mean((test$price - lm_pred)^2)
+)
+
+rmse_lm
+```
+
+
+
+### Linear Regression Results
+
+The Linear Regression model achieved an RMSE of 3.73, meaning that predictions were off by approximately $3.73 per share on average.
+
+The model produced an R² of 0.9987, indicating that the lagged price variables and moving averages explain nearly all variation in NVIDIA stock prices within the sample.
+
+This model serves as the baseline benchmark for comparison with Random Forest and XGBoost models.
+
+
+# Random Forest Model
+
+
+
+Random Forest is an ensemble machine learning method that combines many decision trees to improve prediction accuracy and reduce overfitting. The model can capture nonlinear relationships that may not be detected by linear regression.
+
+
+
+
+
+```{r}
+
+
+rf_model <- randomForest(
+  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  data = train,
+  ntree = 500
+)
+
+rf_pred <- predict(
+  rf_model,
+  newdata = test
+)
+
+rmse_rf <- sqrt(
+  mean((test$price - rf_pred)^2)
+)
+
+rmse_rf
+```
+### Random Forest Results
+
+The Random Forest model achieved an RMSE of 46.00, which is substantially higher than the Linear Regression model.
+
+This suggests that the lagged stock price relationships are largely linear and that the Random Forest model did not improve predictive performance for this dataset.
+
+The Linear Regression model remains the strongest performer so far.
+
+
+
+```{r}
+
+summary(rf_model)
+
+
+importance(rf_model)
+```
+
+### Random Forest Variable Importance
+
+The Random Forest model identified the 5-day moving average (ma5) and the previous day's stock price (lag1) as the most important predictors of NVIDIA stock prices.
+
+Longer-term lagged prices contributed less predictive value, suggesting that recent price movements contain the strongest forecasting signal.
+
+Although the Random Forest model identified meaningful predictors, its RMSE (46.00) was substantially higher than the Linear Regression model (3.73). This indicates that machine learning did not improve forecasting performance for this dataset.
+
+
+
+# XGBoost Model
+
+XGBoost is a gradient boosting machine learning algorithm that builds trees sequentially, with each tree attempting to correct the errors of previous trees. It is widely used in forecasting and predictive analytics because of its ability to capture complex nonlinear relationships.
+
+
+```{r}
+x_train <- as.matrix(
+  train[, c("lag1","lag2","lag5","lag10","ma5","ma20")]
+)
+
+y_train <- train$price
+
+x_test <- as.matrix(
+  test[, c("lag1","lag2","lag5","lag10","ma5","ma20")]
+)
+
+y_test <- test$price
+
+xgb_model <- xgboost(
+  data = x_train,
+  label = y_train,
+  nrounds = 100,
+  objective = "reg:squarederror",
+  verbose = 0
+)
+
+xgb_pred <- predict(
+  xgb_model,
+  x_test
+)
+
+rmse_xgb <- sqrt(
+  mean((y_test - xgb_pred)^2)
+)
+
+rmse_xgb
+```
+
+# Model Comparison
+
+The three forecasting models were evaluated using Root Mean Squared Error (RMSE).
+
+Lower RMSE values indicate better forecasting accuracy.
+
+```{r}
+results <- data.frame(
+  Model = c(
+    "Linear Regression",
+    "Random Forest",
+    "XGBoost"
+  ),
+  RMSE = c(
+    rmse_lm,
+    rmse_rf,
+    rmse_xgb
+  )
+)
+
+results
+```
+The Linear Regression model achieved the lowest RMSE and therefore produced the most accurate forecasts for NVIDIA stock prices.
+
+# Conclusions
+
+
+This project compared traditional econometric methods with machine learning approaches for forecasting NVIDIA stock prices.
+
+Key findings include:
+
+- Lagged stock prices and moving averages contain substantial predictive information.
+- Linear Regression achieved the lowest RMSE (3.73).
+- Random Forest and XGBoost produced significantly higher forecast errors.
+- More complex machine learning models did not improve forecasting performance for this dataset.
+
+These results suggest that NVIDIA stock prices exhibit strong linear relationships that are effectively captured by traditional regression methods.
+
+Future work could include incorporating trading volume, market indices, macroeconomic indicators, and technical indicators to determine whether machine learning methods gain an advantage with richer feature sets.
+
+
+
+
+# RMSE Bar Chart
+```{r}
+plot_ly(
+  data = results,
+  x = ~Model,
+  y = ~RMSE,
+  type = "bar"
+) %>%
+  layout(
+    title = "Model RMSE Comparison",
+    xaxis = list(title = "Model"),
+    yaxis = list(title = "RMSE")
+  )
+```
+
+### 2. Random Forest Importance Plot
+
+
+```{r}
+varImpPlot(rf_model)
+```
+
+
+
+### 3. Clean Results Table
+
+
+```{r}
+
+
+
+
+
+datatable(
+  results,
+  options = list(
+    pageLength = 3,
+    dom = "t"
+  ),
+  rownames = FALSE,
+  caption = "Model Performance Comparison"
+)
+```
+

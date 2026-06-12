@@ -24,6 +24,28 @@ library(plotly)
 library(htmltools)
 ```
 
+
+<div style="margin:20px 0; text-align:center;">
+
+<a href="Version_2.html" target="_blank">
+<button style="
+background:#2563eb;
+color:white;
+padding:12px 20px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+font-size:16px;">
+Open Version 2.1: Machine Learning Forecasting
+</button>
+</a>
+
+</div>
+
+
+
+
+
 <style>
 body {
   background: #f4f7fb;

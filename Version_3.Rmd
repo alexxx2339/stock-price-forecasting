@@ -413,3 +413,104 @@ The latest observed Tesla stock price was $406.43. The model predicted a next-tr
 
 This forecast suggests a modest short-term decline of approximately $5.92, or 1.46%, relative to the latest observed price. Forecasts should be interpreted as statistical estimates rather than guarantees of future market performance.
 
+
+
+# 30-Day Forecast
+
+
+The best-performing model (Linear Regression) was used to generate a 30-day forward forecast. Future values are generated recursively, meaning each prediction becomes an input for subsequent forecasts.
+
+```{r}
+future_prices <- numeric(30)
+
+current <- tail(tsla_ml, 1)
+
+for(i in 1:30){
+
+  pred <- predict(
+    lm_model,
+    newdata = current
+  )
+
+  future_prices[i] <- pred
+
+  current$lag10 <- current$lag5
+  current$lag5  <- current$lag2
+  current$lag2  <- current$lag1
+  current$lag1  <- pred
+
+  current$ma5 <- mean(c(
+    current$lag1,
+    current$lag2,
+    current$lag5,
+    pred
+  ))
+
+}
+
+forecast_dates <- seq(
+  max(tsla_ml$date) + 1,
+  by = "days",
+  length.out = 30
+)
+forecast_df <- data.frame(
+  Date = forecast_dates,
+  Forecast = round(future_prices, 2)
+)
+
+head(forecast_df)
+```
+
+
+
+## Display Forecast Table
+
+```{r}
+DT::datatable(
+  forecast_df,
+  options = list(pageLength = 10),
+  caption = "30-Day TSLA Forecast"
+)
+
+```
+
+
+
+
+
+
+
+
+
+## Create Forecast Chart
+
+
+
+
+```{r}
+
+
+plot_ly(
+  forecast_df,
+  x = ~Date,
+  y = ~Forecast,
+  type = "scatter",
+  mode = "lines+markers"
+) %>%
+  layout(
+    title = "30-Day Tesla Forecast",
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Predicted Price")
+  )
+```
+
+
+
+30-Day Forecast Interpretation
+
+
+Using the Linear Regression model, a 30-day forward forecast was generated for Tesla stock prices.
+
+The forecast begins at approximately $400.51 and gradually increases to roughly $434 by the end of the forecast horizon. This represents an expected gain of approximately 8.4% over the next 30 trading days.
+
+The forecast reflects recent momentum, moving-average behavior, trading volume, and volatility patterns observed in the historical data. Because the forecast is generated recursively, uncertainty increases as the forecast horizon extends further into the future.

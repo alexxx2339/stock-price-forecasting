@@ -387,3 +387,26 @@ datatable(
 )
 ```
 
+
+
+```{r}
+
+rf_model <- randomForest(
+  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  data = train,
+  ntree = 500,
+  mtry = 1
+)
+
+rf_pred <- predict(
+  rf_model,
+  newdata = test
+)
+
+rmse_rf <- sqrt(
+  mean((test$price - rf_pred)^2)
+)
+
+rmse_rf
+```
+

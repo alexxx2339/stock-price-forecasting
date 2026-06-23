@@ -61,7 +61,7 @@ Open Version 3: TSLA Forecasting
 
 <br><br>
 
-<a href="Version_3_1.html" target="_blank">
+<a href="Version_3.1.html" target="_blank">
 <button>Open Version 3.1: Technical Indicator Forecasting</button>
 </a>
 

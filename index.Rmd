@@ -46,6 +46,24 @@ Open Version 2.1: Machine Learning Forecasting
 
 
 
+<a href="Version_3.html" target="_blank">
+<button style="
+background:#16a34a;
+color:white;
+padding:12px 20px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+font-size:16px;">
+Open Version 3: TSLA Forecasting
+</button>
+</a>
+
+
+
+
+
+
 <style>
 body {
   background: #f4f7fb;

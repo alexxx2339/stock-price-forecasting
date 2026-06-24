@@ -27,9 +27,65 @@ library(randomForest)
 library(xgboost)
 library(DT)
 library(plotly)
+library(TTR)
 ```
 
 
+<style>
+body {
+  background: #f4f7fb;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+h1, h2, h3 {
+  color: #0f3d91;
+  font-weight: 700;
+}
+
+.chart-title {
+  background: white;
+  border-left: 6px solid #2563eb;
+  padding: 18px;
+  border-radius: 14px;
+  margin: 15px 0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.section-card {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  margin: 15px 0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.metric-grid {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.metric-card {
+  flex: 1;
+  background: linear-gradient(135deg,#0f172a,#2563eb);
+  color: white;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.metric-card h2 {
+  color: white;
+  font-size: 30px;
+  margin: 0;
+}
+
+.metric-card p {
+  color: white;
+  margin-top: 8px;
+}
+</style>
+</style>
 
 <div style="margin:20px 0; text-align:center;">
 
@@ -52,6 +108,13 @@ Back to Version 1: ARIMA Forecasting
 
 </div>
 
+
+
+
+
+
+<div class="section-card">
+
 # Overview
 
 This version extends the NVIDIA stock forecasting project by using machine learning models to predict stock prices from lagged price features.
@@ -64,6 +127,12 @@ Models included:
 - XGBoost
 
 Model performance will be evaluated using RMSE.
+</div>
+
+
+
+<div class="chart-title">
+<b>
 
 # Load NVIDIA Data
 
@@ -80,7 +149,8 @@ invisible(
 
 nvda <- data.frame(
   date = index(NVDA),
-  price = as.numeric(Ad(NVDA))
+  price = as.numeric(Ad(NVDA)),
+  volume = as.numeric(Vo(NVDA))
 )
 ```
 
@@ -94,13 +164,31 @@ nvda_ml <- nvda %>%
     lag2 = lag(price, 2),
     lag5 = lag(price, 5),
     lag10 = lag(price, 10),
-    ma5 = zoo::rollmean(price, 5, fill = NA, align = "right"),
-    ma20 = zoo::rollmean(price, 20, fill = NA, align = "right")
+
+    ma5 = rollmean(price, 5, fill = NA, align = "right"),
+    ma20 = rollmean(price, 20, fill = NA, align = "right"),
+
+    daily_return = (price / lag(price, 1)) - 1,
+
+    volatility_5 = rollapply(
+      daily_return,
+      width = 5,
+      FUN = sd,
+      fill = NA,
+      align = "right"
+    ),
+
+    rsi_14 = RSI(price, n = 14),
+
+    macd = MACD(price)[,1],
+    macd_signal = MACD(price)[,2],
+
+    bb_upper = BBands(price)[, "up"],
+    bb_middle = BBands(price)[, "mavg"],
+    bb_lower = BBands(price)[, "dn"],
+    bb_width = bb_upper - bb_lower
   ) %>%
   drop_na()
-
-range(nvda_ml$date)
-nrow(nvda_ml)
 ```
 
 
@@ -170,7 +258,15 @@ The linear regression model serves as a baseline benchmark. Future machine learn
 
 ```{r}
 lm_model <- lm(
-  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  price ~ lag1 + lag2 + lag5 + lag10 +
+    ma5 + ma20 +
+    volume +
+    daily_return +
+    volatility_5 +
+    rsi_14 +
+    macd +
+    macd_signal +
+    bb_width,
   data = train
 )
 
@@ -218,9 +314,18 @@ Random Forest is an ensemble machine learning method that combines many decision
 
 
 rf_model <- randomForest(
-  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  price ~ lag1 + lag2 + lag5 + lag10 +
+    ma5 + ma20 +
+    volume +
+    daily_return +
+    volatility_5 +
+    rsi_14 +
+    macd +
+    macd_signal +
+    bb_width,
   data = train,
-  ntree = 500
+  ntree = 500,
+  mtry = 4
 )
 
 rf_pred <- predict(
@@ -268,16 +373,22 @@ XGBoost is a gradient boosting machine learning algorithm that builds trees sequ
 
 
 ```{r}
-x_train <- as.matrix(
-  train[, c("lag1","lag2","lag5","lag10","ma5","ma20")]
+features <- c(
+  "lag1", "lag2", "lag5", "lag10",
+  "ma5", "ma20",
+  "volume",
+  "daily_return",
+  "volatility_5",
+  "rsi_14",
+  "macd",
+  "macd_signal",
+  "bb_width"
 )
 
+x_train <- as.matrix(train[, features])
 y_train <- train$price
 
-x_test <- as.matrix(
-  test[, c("lag1","lag2","lag5","lag10","ma5","ma20")]
-)
-
+x_test <- as.matrix(test[, features])
 y_test <- test$price
 
 xgb_model <- xgboost(
@@ -392,10 +503,18 @@ datatable(
 ```{r}
 
 rf_model <- randomForest(
-  price ~ lag1 + lag2 + lag5 + lag10 + ma5 + ma20,
+  price ~ lag1 + lag2 + lag5 + lag10 +
+    ma5 + ma20 +
+    volume +
+    daily_return +
+    volatility_5 +
+    rsi_14 +
+    macd +
+    macd_signal +
+    bb_width,
   data = train,
   ntree = 500,
-  mtry = 1
+  mtry = 4
 )
 
 rf_pred <- predict(
@@ -409,4 +528,75 @@ rmse_rf <- sqrt(
 
 rmse_rf
 ```
+
+# Next-Day Forecast Comparison
+
+```{r}
+
+
+
+
+
+
+
+
+
+features <- c(
+  "lag1", "lag2", "lag5", "lag10",
+  "ma5", "ma20",
+  "volume",
+  "daily_return",
+  "volatility_5",
+  "rsi_14",
+  "macd",
+  "macd_signal",
+  "bb_width"
+)
+
+latest_obs <- tail(nvda_ml, 1)
+
+lm_next <- predict(
+  lm_model,
+  newdata = latest_obs
+)
+
+rf_next <- predict(
+  rf_model,
+  newdata = latest_obs
+)
+
+xgb_next <- predict(
+  xgb_model,
+  as.matrix(
+    latest_obs[, features]
+  )
+)
+
+forecast_compare <- data.frame(
+  Model = c(
+    "Linear Regression",
+    "Random Forest",
+    "XGBoost"
+  ),
+  Forecast = c(
+    lm_next,
+    rf_next,
+    xgb_next
+  )
+)
+
+forecast_compare
+```
+
+
+</div>
+
+
+
+
+
+
+
+
+
 

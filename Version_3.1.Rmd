@@ -30,7 +30,73 @@ library(zoo)
 library(TTR)
 ```
 
-# Load TSLA Data
+
+
+<style>
+body {
+  background: #f4f7fb;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+h1, h2, h3 {
+  color: #0f3d91;
+  font-weight: 700;
+}
+
+.chart-title {
+  background: white;
+  border-left: 6px solid #2563eb;
+  padding: 18px;
+  border-radius: 14px;
+  margin: 15px 0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.section-card {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  margin: 15px 0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.metric-grid {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.metric-card {
+  flex: 1;
+  background: linear-gradient(135deg,#0f172a,#2563eb);
+  color: white;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.metric-card h2 {
+  color: white;
+  font-size: 30px;
+  margin: 0;
+}
+
+.metric-card p {
+  color: white;
+  margin-top: 8px;
+}
+</style>
+
+
+
+
+
+<div class="chart-title">
+<b> # Load TSLA Data </b><br><br>
+
+
+
+
 
 
 ```{r}
@@ -537,3 +603,146 @@ Using the Linear Regression model, a 30-day forward forecast was generated for T
 The forecast begins at approximately $400.51 and gradually increases to roughly $434 by the end of the forecast horizon. This represents an expected gain of approximately 8.4% over the next 30 trading days.
 
 The forecast reflects recent momentum, moving-average behavior, trading volume, and volatility patterns observed in the historical data. Because the forecast is generated recursively, uncertainty increases as the forecast horizon extends further into the future.
+
+# Next-Day Forecast Comparison
+
+
+
+```{r}
+
+
+latest_obs <- tail(tsla_ml, 1)
+
+lm_next <- predict(
+  lm_model,
+  newdata = latest_obs
+)
+
+rf_next <- predict(
+  rf_model,
+  newdata = latest_obs
+)
+
+xgb_next <- predict(
+  xgb_model,
+  as.matrix(
+    latest_obs[, c(
+      "lag1",
+      "lag2",
+      "lag5",
+      "lag10",
+      "ma5",
+      "ma20",
+      "volume",
+      "daily_return",
+      "volatility_5",
+      "rsi_14",
+      "macd",
+      "macd_signal",
+      "bb_width"
+    )]
+  )
+)
+
+forecast_compare <- data.frame(
+  Model = c(
+    "Linear Regression",
+    "Random Forest",
+    "XGBoost"
+  ),
+  Forecast = c(
+    lm_next,
+    rf_next,
+    xgb_next
+  )
+)
+
+forecast_compare
+```
+
+Forecast Comparison Discussion
+
+Although Linear Regression achieved the lowest RMSE and remained the best-performing model overall, the most recent next-day forecast produced a different result. XGBoost generated the closest prediction to the observed Tesla closing price, followed closely by Random Forest.
+
+This illustrates an important forecasting principle: the model with the lowest average error across a large test set is not necessarily the model that will produce the most accurate forecast on every individual day. Linear Regression provided the strongest long-run performance, while XGBoost demonstrated strong performance under the most recent market conditions.
+
+
+
+
+
+
+
+
+
+```{r}
+
+latest_obs <- tail(tsla_ml, 1)
+
+lm_next <- predict(
+  lm_model,
+  newdata = latest_obs
+)
+
+rf_next <- predict(
+  rf_model,
+  newdata = latest_obs
+)
+
+xgb_next <- predict(
+  xgb_model,
+  as.matrix(
+    latest_obs[, c(
+      "lag1",
+      "lag2",
+      "lag5",
+      "lag10",
+      "ma5",
+      "ma20",
+      "volume",
+      "daily_return",
+      "volatility_5",
+      "rsi_14",
+      "macd",
+      "macd_signal",
+      "bb_width"
+    )]
+  )
+)
+
+
+forecast_compare <- data.frame(
+  Model = c(
+    "Linear Regression",
+    "Random Forest",
+    "XGBoost"
+  ),
+  Forecast = c(
+    lm_next,
+    rf_next,
+    xgb_next
+  )
+)
+
+forecast_compare
+```
+
+
+
+```{r}
+
+tail(tsla_ml$date, 1)
+tail(tsla_ml$price, 1)
+```
+
+
+
+
+
+
+
+
+
+</div>
+
+
+
